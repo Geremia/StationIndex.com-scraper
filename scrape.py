@@ -6,61 +6,34 @@ import sys
 import re
 import csv
 
-if len(sys.argv) != 3:
-    print("Two args required: city name & URL")
+if len(sys.argv) != 2:
+    print(f'Usage: {sys.argv[0]} <DMA name (e.g., "New York"; cf. https://www.stationindex.com/tv/tv-markets)>')
     sys.exit(1)
 
-def getRedirURL(url):
-    try:
-        string = requests.head(url).next.url
-        return string
-    except:
-        return ""
-
-def getContactURLTwitter(url):
-    contact_url = url.replace("click?id=", "click?cid=")
-    twitter_url = url.replace("click?id=", "click?tid=")
-    return getRedirURL(contact_url), getRedirURL(twitter_url)
-
-def getContactInfo(url):
+def getData(url):
+    stations = []
     html = requests.get(url)
     doc = lxml.html.fromstring(html.content)
-    contact_h2 = doc.xpath('.//h2[text()="Contact"]')[0]
-    try:
-        content = contact_h2.getparent().text_content()
-    except:
-        return ""
-    found = re.findall("Contact.*For ", content)[0]
-    r1 = re.sub("^Contact", "", found)
-    r2 = re.sub("For $", "", r1)
-    return r2
+    table_rows = doc.xpath('//table[@class="table"]')[0]
+    for r in table_rows:
+        channel = r[0].cssselect('.text-bold')[0].text_content()
+        callsign = r[1].text_content()
+        description = r[3]
+        try:
+            website = description.xpath('.//a/@href')[0]
+        except:
+            website = ''
+        power = description.xpath('.//span[contains(text(), "Station Info:")]/following-sibling::text()[1]')[0].strip()
+        power = re.search(r'([0-9.]+) kW', power).group(1)
+        stations.append([callsign, channel, power, website])
+    return stations
 
-url = str(sys.argv[2])
+url = 'https://www.stationindex.com/tv/markets/' + sys.argv[1]
 
-html = requests.get(url)
-doc = lxml.html.fromstring(html.content)
-
-urls = doc.xpath("//a[contains(@href, 'click?id=')]")
-
-news = []
-
-for i in urls:
-    click_url = i.values()[0]
-    next_a = i.getnext()
-
-    news_name = i.getnext().text
-    contact_url, twitter  = getContactURLTwitter(click_url)
-    try:
-        contact = getContactInfo(next_a.values()[0])
-    except:
-        contact = ""
-    row = [news_name, contact, contact_url, twitter]
-    print(row)
-    news.append(row)
-
-news.sort()
+stations = getData(url)
 
 csv_filename = sys.argv[1]+'.csv'
 with open(csv_filename, 'w', newline='') as f:
-     mywriter = csv.writer(f, delimiter='|') 
-     mywriter.writerows(news)
+    mywriter = csv.writer(f, delimiter='|') 
+    mywriter.writerow(['Call Sign', 'Channel', 'Power (kW)', 'Website'])
+    mywriter.writerows(stations)
