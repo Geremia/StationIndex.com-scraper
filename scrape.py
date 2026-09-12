@@ -29,8 +29,10 @@ def getData(url):
     return stations
 
 url = 'https://www.stationindex.com/tv/markets/' + sys.argv[1]
-
 stations = getData(url)
+
+# sort stations by power (descending)
+stations = sorted(stations, key=lambda x: float(x[2]), reverse=True)
 
 csv_filename = sys.argv[1]+'.csv'
 with open(csv_filename, 'w', newline='') as f:
