@@ -24,18 +24,23 @@ def getData(url):
         except:
             website = ''
         power = description.xpath('.//span[contains(text(), "Station Info:")]/following-sibling::text()[1]')[0].strip()
-        power = re.search(r'([0-9.]+) kW', power).group(1)
-        stations.append([callsign, channel, power, website])
+        power = float(re.search(r'([0-9.]+) kW', power).group(1))
+        try:
+            station_id = description.xpath('.//span[contains(text(), "ID:")]/following-sibling::text()[1]')[0].strip()
+        except:
+            station_id = ''
+        station_id = re.sub(r'"', '', station_id)
+        stations.append([callsign, channel, station_id, power, website])
     return stations
 
 url = 'https://www.stationindex.com/tv/markets/' + sys.argv[1]
 stations = getData(url)
 
 # sort stations by power (descending)
-stations = sorted(stations, key=lambda x: float(x[2]), reverse=True)
+stations = sorted(stations, key=lambda x: x[3], reverse=True)
 
 csv_filename = sys.argv[1]+'.csv'
 with open(csv_filename, 'w', newline='') as f:
-    mywriter = csv.writer(f, delimiter='|') 
-    mywriter.writerow(['Call Sign', 'Channel', 'Power (kW)', 'Website'])
+    mywriter = csv.writer(f) 
+    mywriter.writerow(['Call Sign', 'Channel', 'ID', 'Power (kW)', 'Website'])
     mywriter.writerows(stations)
